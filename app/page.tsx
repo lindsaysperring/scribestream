@@ -80,11 +80,43 @@ export default function Home() {
 function TranscriptDisplay({ transcript }: { transcript: TranscriptResponse[] }) {
   const fullText = transcript.map(item => item.text).join('\n');
 
+  const splitIntoChunks = (text: string, maxLength: number = 4000): string[] => {
+    const chunks: string[] = [];
+    let currentChunk = '';
+
+    const words = text.split(/(\s+)/);
+    
+    for (const word of words) {
+      if ((currentChunk + word).length <= maxLength) {
+        currentChunk += word;
+      } else {
+        chunks.push(currentChunk.trim());
+        currentChunk = word;
+      }
+    }
+    
+    if (currentChunk) {
+      chunks.push(currentChunk.trim());
+    }
+
+    return chunks;
+  };
+
+  const chunks = splitIntoChunks(fullText);
+
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(fullText);
     } catch (err) {
       console.error('Failed to copy text:', err);
+    }
+  };
+
+  const copyChunk = async (chunk: string) => {
+    try {
+      await navigator.clipboard.writeText(chunk);
+    } catch (err) {
+      console.error('Failed to copy chunk:', err);
     }
   };
 
@@ -101,28 +133,56 @@ function TranscriptDisplay({ transcript }: { transcript: TranscriptResponse[] })
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Transcript</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={copyToClipboard}>
-              Copy to Clipboard
-            </Button>
-            <Button variant="outline" size="sm" onClick={downloadTranscript}>
-              Download
-            </Button>
-          </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="max-h-[600px] overflow-y-auto space-y-2">
-        {transcript.map((item, index) => (
-          <p key={index} className="text-sm">
-            {item.text}
-          </p>
-        ))}
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Full Transcript</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={copyToClipboard}>
+                Copy All
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadTranscript}>
+                Download
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="max-h-[300px] overflow-y-auto space-y-2">
+          {transcript.map((item, index) => (
+            <p key={index} className="text-sm">
+              {item.text}
+            </p>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>4K Character Chunks</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {chunks.map((chunk, index) => (
+            <div key={index} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Chunk {index + 1}</span>
+                <Button variant="outline" size="sm" onClick={() => copyChunk(chunk)}>
+                  Copy Chunk
+                </Button>
+              </div>
+              <div className="relative">
+                <div className="max-h-[100px] overflow-y-auto rounded-md border bg-muted p-2">
+                  <pre className="text-xs">{chunk}</pre>
+                </div>
+                <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                  {chunk.length} characters
+                </div>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
