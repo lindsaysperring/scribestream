@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { getTranscript } from "./actions";
+import { getTranscript, generateSummary } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,7 +77,14 @@ export default function Home() {
   );
 }
 
+type SummaryState = {
+  summary?: string;
+  error?: string;
+  loading?: boolean;
+};
+
 function TranscriptDisplay({ transcript }: { transcript: TranscriptResponse[] }) {
+  const [summaryState, setSummaryState] = useState<SummaryState>({});
   const fullText = transcript.map(item => item.text).join('\n');
 
   const splitIntoChunks = (text: string, maxLength: number = 4000): string[] => {
@@ -120,6 +127,20 @@ function TranscriptDisplay({ transcript }: { transcript: TranscriptResponse[] })
     }
   };
 
+  const handleGenerateSummary = async () => {
+    setSummaryState({ loading: true });
+    try {
+      const result = await generateSummary(fullText);
+      if (result.error) {
+        setSummaryState({ error: result.error });
+      } else {
+        setSummaryState({ summary: result.summary });
+      }
+    } catch (error) {
+      setSummaryState({ error: (error as Error).message });
+    }
+  };
+
   const downloadTranscript = () => {
     const blob = new Blob([fullText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -138,7 +159,15 @@ function TranscriptDisplay({ transcript }: { transcript: TranscriptResponse[] })
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Full Transcript</span>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleGenerateSummary}
+                disabled={summaryState.loading}
+              >
+                {summaryState.loading ? "Generating..." : "Generate Summary"}
+              </Button>
               <Button variant="outline" size="sm" onClick={copyToClipboard}>
                 Copy All
               </Button>
@@ -156,6 +185,53 @@ function TranscriptDisplay({ transcript }: { transcript: TranscriptResponse[] })
           ))}
         </CardContent>
       </Card>
+
+      {summaryState.error && <ErrorDisplay message={summaryState.error} />}
+
+      {summaryState.summary && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Summary</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (summaryState.summary) {
+                      navigator.clipboard.writeText(summaryState.summary);
+                    }
+                  }}
+                >
+                  Copy Summary
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (summaryState.summary) {
+                      const blob = new Blob([summaryState.summary], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'summary.txt';
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }
+                  }}
+                >
+                  Download Summary
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="max-h-[300px] overflow-y-auto whitespace-pre-wrap">
+            {summaryState.summary}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
