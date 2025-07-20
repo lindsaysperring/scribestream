@@ -19,8 +19,7 @@
     "react-dom": "^18",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "youtube-transcript": "^1.2.1",
-    "youtube-transcript-api": "^1.1.2"
+    "youtubei.js": "^14.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",

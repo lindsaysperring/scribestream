@@ -87,7 +87,7 @@ function TranscriptDisplay({ transcript }: { transcript: TranscriptResponse[] })
   const [summaryState, setSummaryState] = useState<SummaryState>({});
   const fullText = transcript.map(item => item.text).join('\n');
 
-  const splitIntoChunks = (text: string, maxLength: number = 4000): string[] => {
+  const splitIntoChunks = (text: string, maxLength: number = 16000): string[] => {
     const chunks: string[] = [];
     let currentChunk = '';
 
@@ -235,7 +235,7 @@ function TranscriptDisplay({ transcript }: { transcript: TranscriptResponse[] })
 
       <Card>
         <CardHeader>
-          <CardTitle>4K Character Chunks</CardTitle>
+          <CardTitle>4K Token Chunks</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {chunks.map((chunk, index) => (
