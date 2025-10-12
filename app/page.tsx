@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
 
 type TranscriptResponse = {
   text: string;
@@ -227,8 +228,8 @@ function TranscriptDisplay({ transcript }: { transcript: TranscriptResponse[] })
               </div>
             </CardTitle>
           </CardHeader>
-          <CardContent className="max-h-[300px] overflow-y-auto whitespace-pre-wrap">
-            {summaryState.summary}
+          <CardContent className="max-h-[800px] overflow-y-auto">
+            <ReactMarkdown>{summaryState.summary}</ReactMarkdown>
           </CardContent>
         </Card>
       )}

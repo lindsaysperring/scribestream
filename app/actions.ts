@@ -1,6 +1,9 @@
 'use server'
 
 import { Innertube } from 'youtubei.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 type TranscriptState = {
   transcript?: Array<{ text: string; duration: number; offset: number }>;
@@ -16,30 +19,16 @@ type SummaryResponse = {
   };
 };
 
-async function ollamaComplete(prompt: string): Promise<string> {
-  const response = await fetch('http://localhost:11434/api/generate', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gemma3:4b',
-      prompt: prompt,
-      stream: false
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Ollama API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return data.response;
+async function geminiComplete(prompt: string): Promise<string> {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  return response.text();
 }
 
 export async function generateSummary(text: string): Promise<SummaryResponse> {
   try {
-    const maxChunkSize = 16000; // Adjust based on model's context window
+    const maxChunkSize = 128000; // Adjust based on model's context window
     const chunks = text.match(/[^.!?]+[.!?]+/g) || [text];
     
     let currentChunk = '';
@@ -62,10 +51,10 @@ export async function generateSummary(text: string): Promise<SummaryResponse> {
     let totalTokens = 0;
     let totalTime = 0;
     for (let i = 0; i < processChunks.length; i++) {
-      const prompt = `Summarise the following. No introduction. No explanation. No headings. No extra sentences. Just detailed bullet points from this text. Give up to 30 bullet points:\n\n${processChunks[i]}`;
+      const prompt = `Please summarize the following text using precise and concise language. Use headers and bulleted lists in the summary, to make it scannable. Maintain the meaning and factual accuracy:\n\n${processChunks[i]}`;
       const tokenEstimate = prompt.split(/\s+/).length;
       const startTime = Date.now();
-      const summary = await ollamaComplete(prompt);
+      const summary = await geminiComplete(prompt);
       const endTime = Date.now();
       const elapsed = (endTime - startTime) / 1000; // seconds
       totalTokens += tokenEstimate;
@@ -79,10 +68,10 @@ export async function generateSummary(text: string): Promise<SummaryResponse> {
 
     // If we have multiple summaries, generate a final summary
     let finalSummary = summaries.join('\n\n');
-    // if (summaries.length > 1) {
-    //   const finalPrompt = `Combine and summarize the following multiple summaries into one detailed list of bullet points. Output only bullet points. No introduction. No explanation. No headings. No extra sentences. Limit to up to 30 bullet points total:\n\n${finalSummary}`;
-    //   finalSummary = await ollamaComplete(finalPrompt);
-    // }
+    if (summaries.length > 1) {
+      const finalPrompt = `Please combine and summarize the following multiple summaries into one cohesive summary using precise and concise language. Use headers and bulleted lists to make it scannable. Maintain the meaning and factual accuracy:\n\n${finalSummary}`;
+      finalSummary = await geminiComplete(finalPrompt);
+    }
 
     return { summary: finalSummary };
   } catch (error) {
