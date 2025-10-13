@@ -1,0 +1,1 @@
+export const CHUNK_SIZE = 16000; // 16K characters for chunking
