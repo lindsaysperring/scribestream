@@ -155,6 +155,39 @@ pnpm lint         # Run ESLint
 
 ## 🚢 Deployment
 
+### Docker
+
+To run the application using Docker:
+
+1. Ensure you have Docker installed and running on your system.
+
+2. Clone the repository and navigate to the project directory:
+```bash
+git clone https://github.com/lindsaysperring/scribestream.git
+cd scribestream
+```
+
+3. Create a `.env` file with your API key:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+4. Build and run the application using Docker Compose:
+```bash
+docker-compose up --build
+```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+Alternatively, you can build and run manually:
+```bash
+# Build the image
+docker build -t scribestream .
+
+# Run the container
+docker run -p 3000:3000 --env-file .env scribestream
+```
+
 ### Vercel (Recommended)
 
 The easiest way to deploy is using [Vercel](https://vercel.com):
