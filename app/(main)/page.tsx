@@ -15,7 +15,23 @@ export default function TranscriptPage() {
   const [summaryState, setSummaryState] = useState<SummaryState>({});
 
   const handleStateChange = (state: TranscriptState) => {
-    setTranscriptState(state);
+    setTranscriptState((prev) => {
+      if (state?.transcript) {
+        const prevT = prev?.transcript;
+        const newT = state.transcript;
+        const isDifferent =
+          !prevT ||
+          prevT.length !== newT.length ||
+          prevT[0]?.text !== newT[0]?.text ||
+          prevT[prevT.length - 1]?.text !== newT[newT.length - 1]?.text;
+
+        if (isDifferent) {
+          setSummaryState({});
+        }
+      }
+
+      return state;
+    });
   };
 
   const handleGenerateSummary = async () => {

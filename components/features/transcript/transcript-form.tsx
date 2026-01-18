@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useRef } from "react";
+import { useFormStatus } from "react-dom";
 import { getTranscript } from "@/lib/actions/transcript-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ interface TranscriptFormProps {
 
 export function TranscriptForm({ onStateChange }: TranscriptFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
-  const [state, formAction] = useFormState<TranscriptState, FormData>(getTranscript, {} as TranscriptState);
+  const [state, formAction] = useActionState<TranscriptState, FormData>(getTranscript, {} as TranscriptState);
 
   // Notify parent of state changes
   if (onStateChange && state !== null) {
