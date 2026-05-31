@@ -5,9 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TranscriptSegment } from "@/lib/types/transcript";
 import { useClipboard } from "@/lib/hooks/use-clipboard";
 import { useDownload } from "@/lib/hooks/use-download";
-import { splitIntoChunks } from "@/lib/utils/text-processing";
 import { TranscriptActions } from "./transcript-actions";
-import { TranscriptChunks } from "./transcript-chunks";
 
 interface TranscriptDisplayProps {
   transcript: TranscriptSegment[];
@@ -20,12 +18,7 @@ export function TranscriptDisplay({ transcript }: TranscriptDisplayProps) {
   const fullText = useMemo(
     () => transcript.map(item => item.text).join('\n'),
     [transcript]
-  );
-
-  const chunks = useMemo(
-    () => splitIntoChunks(fullText),
-    [fullText]
-  );
+ );
 
   const handleCopyAll = () => {
     copy(fullText);
@@ -54,9 +47,7 @@ export function TranscriptDisplay({ transcript }: TranscriptDisplayProps) {
             </p>
           ))}
         </CardContent>
-      </Card>
-
-      <TranscriptChunks chunks={chunks} />
+     </Card>
     </div>
   );
 }

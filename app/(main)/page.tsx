@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useEffect, useState, useCallback, Suspense, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { TranscriptForm } from '@/components/features/transcript/transcript-form';
 import { TranscriptDisplay } from '@/components/features/transcript/transcript-display';
 import { SummaryDisplay } from '@/components/features/summary/summary-display';
@@ -8,31 +9,80 @@ import { ErrorDisplay } from '@/components/shared/error-display';
 import { FormSkeleton } from '@/components/shared/loading-skeleton';
 import { TranscriptState, SummaryState } from '@/lib/types/transcript';
 import { generateSummary } from '@/lib/actions/summary-actions';
+import { getTranscript } from '@/lib/actions/transcript-actions';
 import { toast } from 'sonner';
+import { parseYouTubeUrl } from '@/lib/utils/url-parser';
 
-export default function TranscriptPage() {
+const SEARCH_URL = 'url';
+
+function TranscriptPageContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [transcriptState, setTranscriptState] = useState<TranscriptState>({});
   const [summaryState, setSummaryState] = useState<SummaryState>({});
+  const [loading, setLoading] = useState(false);
+  const [formUrl, setFormUrl] = useState(searchParams.get(SEARCH_URL) || '');
 
-  const handleStateChange = (state: TranscriptState) => {
-    setTranscriptState((prev) => {
-      if (state?.transcript) {
-        const prevT = prev?.transcript;
-        const newT = state.transcript;
-        const isDifferent =
-          !prevT ||
-          prevT.length !== newT.length ||
-          prevT[0]?.text !== newT[0]?.text ||
-          prevT[prevT.length - 1]?.text !== newT[newT.length - 1]?.text;
+  // Track which video ID was last fetched to detect URL changes
+  const lastFetchedVideoIdRef = useRef<string | null>(null);
 
-        if (isDifferent) {
-          setSummaryState({});
+  const url = searchParams.get(SEARCH_URL);
+
+  // Sync form URL when search params change (browser back/forward)
+  useEffect(() => {
+    const nextUrl = searchParams.get(SEARCH_URL) || '';
+    setFormUrl(nextUrl);
+  }, [searchParams]);
+
+  // Auto-extract when URL param appears or changes
+  useEffect(() => {
+    const target = searchParams.get(SEARCH_URL);
+    if (!target || target.trim() === '') return;
+
+    const videoId = parseYouTubeUrl(target);
+    if (!videoId) return;
+
+    // Only re-extract when the URL param actually changes
+    if (lastFetchedVideoIdRef.current === videoId) return;
+    lastFetchedVideoIdRef.current = videoId;
+
+    (async () => {
+      setSummaryState({});
+      setTranscriptState({});
+      setLoading(true);
+
+      try {
+        const formData = new FormData();
+        formData.set('url', target);
+        const result = await getTranscript({}, formData);
+        if (result.error) {
+          setTranscriptState({ error: result.error });
+          toast.error(result.error);
+        } else if (result.transcript) {
+          setTranscriptState({ transcript: result.transcript });
+          toast.success('Transcript extracted successfully!');
         }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to extract transcript';
+        setTranscriptState({ error: errorMessage });
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
       }
+    })();
+  }, [url]);
 
-      return state;
-    });
-  };
+  const extract = useCallback(async (urlValue: string) => {
+    const videoId = parseYouTubeUrl(urlValue);
+    if (!videoId) {
+      toast.error('Invalid YouTube URL or video ID');
+      return;
+    }
+    setTranscriptState({});
+    setSummaryState({});
+    router.push(`?${SEARCH_URL}=${encodeURIComponent(urlValue)}`, { scroll: false });
+    setLoading(true);
+  }, [router]);
 
   const handleGenerateSummary = async () => {
     if (!transcriptState.transcript) return;
@@ -68,13 +118,17 @@ export default function TranscriptPage() {
           </p>
         </div>
 
-        <Suspense fallback={<FormSkeleton />}>
-          <TranscriptForm onStateChange={handleStateChange} />
-        </Suspense>
+        <TranscriptForm
+          url={formUrl}
+          onUrlChange={setFormUrl}
+          onExtract={extract}
+          disabled={loading}
+        />
 
         <div className="space-y-4">
           {transcriptState.error && <ErrorDisplay message={transcriptState.error} />}
-          {transcriptState.transcript && (
+          {loading && <FormSkeleton />}
+          {!loading && transcriptState.transcript && (
             <>
               <TranscriptDisplay transcript={transcriptState.transcript} />
               <SummaryDisplay
@@ -86,5 +140,13 @@ export default function TranscriptPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function TranscriptPage() {
+  return (
+    <Suspense>
+      <TranscriptPageContent />
+    </Suspense>
   );
 }
