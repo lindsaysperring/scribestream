@@ -5,6 +5,9 @@ import { decodeHtmlEntities } from '@/lib/utils/text-processing';
 import { APIError } from '@/lib/utils/errors';
 import { logger } from '@/lib/utils/logger';
 
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
 export class YouTubeService {
   private yt: Innertube | null = null;
 
@@ -22,6 +25,43 @@ export class YouTubeService {
     }
   }
 
+  private isRateLimitError(error: unknown): boolean {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      return (
+        message.includes('automated queries') ||
+        message.includes('too many requests') ||
+        message.includes('rate limit') ||
+        message.includes('status 429') ||
+        message.includes('status 400')
+      );
+    }
+    return false;
+  }
+
+  private async withRetry<T>(operation: () => Promise<T>, context: string): Promise<T> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+
+        if (attempt < MAX_RETRIES && this.isRateLimitError(error)) {
+          const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+          logger.warn(`Rate limited on ${context}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastError;
+  }
+
   async getTranscript(urlOrId: string): Promise<TranscriptSegment[]> {
     await this.initialize();
 
@@ -31,16 +71,16 @@ export class YouTubeService {
     }
 
     try {
-      // 1. Fetch basic video info (contains caption tracks)
-      const info = await this.yt!.getInfo(videoId);
+      const info = await this.withRetry(
+        () => this.yt!.getInfo(videoId),
+        `getInfo(${videoId})`
+      );
 
-      // 2. Check for caption tracks
       const captionTracks = info.captions?.caption_tracks;
       if (!captionTracks || captionTracks.length === 0) {
         throw new APIError('No caption tracks found for this video', 'YouTube');
       }
 
-      // 3. Prefer English non-ASR, then any English, then fall back to first
       const englishTrack =
         captionTracks.find((t: any) => t.language_code === 'en' && t.kind !== 'asr') ||
         captionTracks.find((t: any) => t.language_code?.startsWith('en')) ||
@@ -50,10 +90,11 @@ export class YouTubeService {
         throw new APIError('No valid caption track URL found', 'YouTube');
       }
 
-      // 4. Fetch timedtext XML
-      const xml = await this.fetchTimedTextXml(englishTrack.base_url);
+      const xml = await this.withRetry(
+        () => this.fetchTimedTextXml(englishTrack.base_url),
+        'fetchTimedTextXml'
+      );
 
-      // 5. Parse XML into segments
       const segments = this.parseTimedTextXml(xml);
 
       if (!segments || segments.length === 0) {
@@ -72,6 +113,11 @@ export class YouTubeService {
     } catch (error) {
       logger.error(`Failed to get transcript for video ${videoId}`, error);
       if (error instanceof APIError) throw error;
+
+      if (this.isRateLimitError(error)) {
+        throw new APIError('YouTube rate limit exceeded. Please try again later.', 'YouTube');
+      }
+
       throw new APIError('Failed to fetch transcript', 'YouTube');
     }
   }
