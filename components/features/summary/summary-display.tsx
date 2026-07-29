@@ -19,8 +19,19 @@ export function SummaryDisplay({ summaryState, onGenerateSummary }: SummaryDispl
 
   if (error) {
     return (
-      <div className="text-red-600 text-sm">
-        Error generating summary: {error}
+      <div className="flex flex-col items-center justify-center p-8 gap-4">
+        <div className="text-red-600 text-sm">
+          Error generating summary: {error}
+        </div>
+        <Button
+          onClick={onGenerateSummary}
+          disabled={loading}
+          variant="secondary"
+          size="sm"
+          aria-label="Generate summary"
+        >
+          {loading ? "Generating..." : "Try Again"}
+        </Button>
       </div>
     );
   }
