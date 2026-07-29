@@ -147,7 +147,6 @@ function TranscriptPageContent() {
           url={formUrl}
           onUrlChange={setFormUrl}
           onExtract={extract}
-          formAction={formAction}
           disabled={isPending}
         />
 
