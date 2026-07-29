@@ -1,15 +1,16 @@
 # ScribeStream
 
-[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-ScribeStream is a modern web application that extracts transcripts from YouTube videos and generates AI-powered summaries using Google's Gemini AI. Built with Next.js 14 and TypeScript, it provides a seamless experience for transcribing and summarizing video content.
+ScribeStream is a modern web application that extracts transcripts from YouTube videos and generates AI-powered summaries using Google's Gemini AI. Built with Next.js 16 and TypeScript, it provides a seamless experience for transcribing and summarizing video content.
 
 ## ✨ Features
 
 - 🎥 **YouTube Transcript Extraction** - Extract transcripts from any YouTube video using video URL or ID
-- 🤖 **AI-Powered Summaries** - Generate intelligent summaries using Google Gemini 2.5 Flash
+- 🤖 **AI-Powered Summaries** - Generate intelligent summaries using Google Gemini 3.5 Flash
+- 📊 **Live Progress** - Real-time progress updates during summary generation via streaming
 - 📋 **Copy to Clipboard** - Easily copy transcripts and summaries
 - 💾 **Download Options** - Download transcripts and summaries as text files
 - ⚡ **Chunked Processing** - Efficient handling of long transcripts with intelligent text chunking
@@ -64,6 +65,9 @@ scribestream/
 │   │   ├── page.tsx         # Home page
 │   │   ├── error.tsx        # Error boundary
 │   │   └── loading.tsx      # Loading state
+│   ├── api/                 # API routes
+│   │   └── summary/         # Summary streaming endpoint
+│   │       └── route.ts     # SSE streaming for summary progress
 │   ├── layout.tsx           # Root layout
 │   └── globals.css          # Global styles
 ├── components/              # React components
@@ -90,9 +94,9 @@ scribestream/
 ## 🛠️ Tech Stack
 
 ### Core
-- **[Next.js 14](https://nextjs.org/)** - React framework with App Router
+- **[Next.js 16](https://nextjs.org/)** - React framework with App Router
 - **[TypeScript](https://www.typescriptlang.org/)** - Type safety
-- **[React 18](https://react.dev/)** - UI library
+- **[React 19](https://react.dev/)** - UI library
 
 ### AI & Data
 - **[@google/generative-ai](https://ai.google.dev/)** - Google Gemini AI integration
@@ -136,6 +140,7 @@ scribestream/
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `GEMINI_API_KEY` | Google Gemini API key | Yes |
+| `GEMINI_MODEL` | Gemini model name (default: `gemini-3.5-flash`) | No |
 | `NODE_ENV` | Environment (development/production/test) | No |
 
 ### Customization

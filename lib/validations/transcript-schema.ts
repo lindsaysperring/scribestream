@@ -1,11 +1,9 @@
 import { z } from 'zod';
+import { isValidYouTubeUrl } from '@/lib/utils/url-parser';
 
 export const transcriptSchema = z.object({
   url: z.string().min(1, 'URL is required').refine(
-    (url) => {
-      // Basic URL validation - more thorough validation in the service
-      return url.includes('youtube.com') || url.includes('youtu.be') || /^[a-zA-Z0-9_-]{11}$/.test(url);
-    },
+    (url) => isValidYouTubeUrl(url),
     'Invalid YouTube URL or video ID'
   ),
 });

@@ -1,7 +1,7 @@
 'use server'
 
 import { transcriptSchema } from '@/lib/validations/transcript-schema';
-import { youtubeService } from '@/lib/services/youtube-service';
+import { getYouTubeService } from '@/lib/services/youtube-service';
 import { TranscriptState } from '@/lib/types/transcript';
 import { handleError } from '@/lib/utils/errors';
 import { logger } from '@/lib/utils/logger';
@@ -23,7 +23,7 @@ export async function getTranscript(
     }
 
     // Fetch transcript
-    const transcript = await youtubeService.getTranscript(parsed.data.url);
+    const transcript = await getYouTubeService().getTranscript(parsed.data.url);
     logger.info('Transcript fetched successfully', { segmentCount: transcript.length });
 
     return { transcript };

@@ -13,19 +13,13 @@ export interface SummaryState {
   summary?: string;
   error?: string;
   loading?: boolean;
-}
-
-export interface SummaryResponse {
-  summary?: string;
-  error?: string;
   progress?: {
     current: number;
     total: number;
   };
 }
 
-export interface ChunkMetadata {
-  index: number;
-  length: number;
-  content: string;
+export interface SummaryResponse {
+  summary?: string;
+  error?: string;
 }

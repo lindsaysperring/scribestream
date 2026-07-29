@@ -8,6 +8,12 @@ import { logger } from '@/lib/utils/logger';
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
+interface CaptionTrack {
+  language_code: string;
+  kind?: string;
+  base_url?: string;
+}
+
 export class YouTubeService {
   private yt: Innertube | null = null;
 
@@ -82,8 +88,8 @@ export class YouTubeService {
       }
 
       const englishTrack =
-        captionTracks.find((t: any) => t.language_code === 'en' && t.kind !== 'asr') ||
-        captionTracks.find((t: any) => t.language_code?.startsWith('en')) ||
+        captionTracks.find((t: CaptionTrack) => t.language_code === 'en' && t.kind !== 'asr') ||
+        captionTracks.find((t: CaptionTrack) => t.language_code?.startsWith('en')) ||
         captionTracks[0];
 
       if (!englishTrack?.base_url) {
@@ -178,4 +184,11 @@ export class YouTubeService {
   }
 }
 
-export const youtubeService = new YouTubeService();
+let _youtubeService: YouTubeService | null = null;
+
+export function getYouTubeService(): YouTubeService {
+  if (!_youtubeService) {
+    _youtubeService = new YouTubeService();
+  }
+  return _youtubeService;
+}

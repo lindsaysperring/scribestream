@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback, Suspense, useRef } from 'react';
+import { useEffect, useState, useCallback, Suspense, useRef, useActionState, startTransition } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { TranscriptForm } from '@/components/features/transcript/transcript-form';
 import { TranscriptDisplay } from '@/components/features/transcript/transcript-display';
 import { SummaryDisplay } from '@/components/features/summary/summary-display';
 import { ErrorDisplay } from '@/components/shared/error-display';
 import { FormSkeleton } from '@/components/shared/loading-skeleton';
-import { TranscriptState, SummaryState } from '@/lib/types/transcript';
-import { generateSummary } from '@/lib/actions/summary-actions';
+import { SummaryState } from '@/lib/types/transcript';
 import { getTranscript } from '@/lib/actions/transcript-actions';
 import { toast } from 'sonner';
 import { parseYouTubeUrl } from '@/lib/utils/url-parser';
@@ -18,9 +17,8 @@ const SEARCH_URL = 'url';
 function TranscriptPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [transcriptState, setTranscriptState] = useState<TranscriptState>({});
+  const [transcriptState, formAction, isPending] = useActionState(getTranscript, {});
   const [summaryState, setSummaryState] = useState<SummaryState>({});
-  const [loading, setLoading] = useState(false);
   const [formUrl, setFormUrl] = useState(searchParams.get(SEARCH_URL) || '');
 
   // Track which video ID was last fetched to detect URL changes
@@ -34,6 +32,15 @@ function TranscriptPageContent() {
     setFormUrl(nextUrl);
   }, [searchParams]);
 
+  // Show toast on transcript state changes
+  useEffect(() => {
+    if (transcriptState.error) {
+      toast.error(transcriptState.error);
+    } else if (transcriptState.transcript) {
+      toast.success('Transcript extracted successfully!');
+    }
+  }, [transcriptState]);
+
   // Auto-extract when URL param appears or changes
   useEffect(() => {
     const target = searchParams.get(SEARCH_URL);
@@ -46,31 +53,13 @@ function TranscriptPageContent() {
     if (lastFetchedVideoIdRef.current === videoId) return;
     lastFetchedVideoIdRef.current = videoId;
 
-    (async () => {
-      setSummaryState({});
-      setTranscriptState({});
-      setLoading(true);
-
-      try {
-        const formData = new FormData();
-        formData.set('url', target);
-        const result = await getTranscript({}, formData);
-        if (result.error) {
-          setTranscriptState({ error: result.error });
-          toast.error(result.error);
-        } else if (result.transcript) {
-          setTranscriptState({ transcript: result.transcript });
-          toast.success('Transcript extracted successfully!');
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to extract transcript';
-        setTranscriptState({ error: errorMessage });
-        toast.error(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [url]);
+    setSummaryState({});
+    const formData = new FormData();
+    formData.set('url', target);
+    startTransition(() => {
+      formAction(formData);
+    });
+  }, [url, formAction]);
 
   const extract = useCallback(async (urlValue: string) => {
     const videoId = parseYouTubeUrl(urlValue);
@@ -78,10 +67,8 @@ function TranscriptPageContent() {
       toast.error('Invalid YouTube URL or video ID');
       return;
     }
-    setTranscriptState({});
     setSummaryState({});
     router.push(`?${SEARCH_URL}=${encodeURIComponent(urlValue)}`, { scroll: false });
-    setLoading(true);
   }, [router]);
 
   const handleGenerateSummary = async () => {
@@ -91,13 +78,51 @@ function TranscriptPageContent() {
     setSummaryState({ loading: true });
 
     try {
-      const result = await generateSummary(fullText);
-      if (result.error) {
-        setSummaryState({ error: result.error });
-        toast.error(result.error);
-      } else {
-        setSummaryState({ summary: result.summary });
-        toast.success('Summary generated successfully!');
+      const response = await fetch('/api/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: fullText }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate summary');
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response stream');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+
+          if (data.error) {
+            setSummaryState({ error: data.error });
+            toast.error(data.error);
+            return;
+          }
+
+          if (data.progress) {
+            setSummaryState(prev => ({ ...prev, progress: data.progress }));
+          }
+
+          if (data.summary) {
+            setSummaryState({ summary: data.summary });
+            toast.success('Summary generated successfully!');
+          }
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to generate summary';
@@ -122,13 +147,14 @@ function TranscriptPageContent() {
           url={formUrl}
           onUrlChange={setFormUrl}
           onExtract={extract}
-          disabled={loading}
+          formAction={formAction}
+          disabled={isPending}
         />
 
         <div className="space-y-4">
           {transcriptState.error && <ErrorDisplay message={transcriptState.error} />}
-          {loading && <FormSkeleton />}
-          {!loading && transcriptState.transcript && (
+          {isPending && <FormSkeleton />}
+          {!isPending && transcriptState.transcript && (
             <>
               <TranscriptDisplay transcript={transcriptState.transcript} />
               <SummaryDisplay

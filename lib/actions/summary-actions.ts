@@ -1,7 +1,7 @@
 'use server'
 
 import { summarySchema } from '@/lib/validations/transcript-schema';
-import { geminiService } from '@/lib/services/gemini-service';
+import { getGeminiService } from '@/lib/services/gemini-service';
 import { SummaryResponse } from '@/lib/types/transcript';
 import { handleError } from '@/lib/utils/errors';
 import { logger } from '@/lib/utils/logger';
@@ -17,7 +17,7 @@ export async function generateSummary(text: string): Promise<SummaryResponse> {
     }
 
     // Generate summary
-    const summary = await geminiService.generateSummary(text);
+    const summary = await getGeminiService().generateSummary(text);
     logger.info('Summary generated successfully');
 
     return { summary };

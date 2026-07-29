@@ -1,15 +1,18 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { splitIntoSentences } from '@/lib/utils/text-processing';
 import { SUMMARY_PROMPT, FINAL_SUMMARY_PROMPT, MAX_CHUNK_SIZE } from '@/lib/constants/prompts';
 import { APIError } from '@/lib/utils/errors';
 import { logger } from '@/lib/utils/logger';
-import { env } from '@/lib/env';
+import { getEnv } from '@/lib/env';
+
+export type ProgressCallback = (current: number, total: number) => void;
 
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
-  private model;
+  private model: GenerativeModel;
 
   constructor() {
+    const env = getEnv();
     const apiKey = env.GEMINI_API_KEY;
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({ model: env.GEMINI_MODEL });
@@ -27,7 +30,7 @@ export class GeminiService {
     }
   }
 
-  async generateSummary(text: string): Promise<string> {
+  async generateSummary(text: string, onProgress?: ProgressCallback): Promise<string> {
     try {
       const chunks = splitIntoSentences(text);
       let currentChunk = '';
@@ -66,6 +69,10 @@ export class GeminiService {
           tps: tokenEstimate / elapsed
         });
 
+        if (onProgress) {
+          onProgress(i + 1, processChunks.length);
+        }
+
         summaries.push(summary);
       }
 
@@ -93,4 +100,11 @@ export class GeminiService {
   }
 }
 
-export const geminiService = new GeminiService();
+let _geminiService: GeminiService | null = null;
+
+export function getGeminiService(): GeminiService {
+  if (!_geminiService) {
+    _geminiService = new GeminiService();
+  }
+  return _geminiService;
+}
